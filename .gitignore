@@ -1,0 +1,6 @@
+/target
+
+.terraform*
+terraform.tfstate*
+bootstrap
+*.zip
