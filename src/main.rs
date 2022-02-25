@@ -131,19 +131,17 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
     _ => false,
   };
 
-  match text.as_str() {
-    "/add" => println!("add command"),
-    "/list" => println!("list command"),
-    _ => println!("just a message"),
-  }
-
   let dynamodb_client = DynamodbClient::new(&shared_config);
   let table_name = env::var("table_name").unwrap();
+  let admin_id: u64 = env::var("admin_id").unwrap().parse().unwrap();
 
-  if is_private && text.starts_with("/add") {
+  let is_message_from_admin = is_private && admin_id == message.from.id;
+
+  if is_message_from_admin && text.starts_with("/add") {
     let alphabet: [char; 34] = [
       '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p','q', 'r', 's', 't', 'u', 'w', 'x', 'y', 'z'
     ];
+
     let id_av = AttributeValue::S(nanoid!(10, &alphabet));
     let message_av = AttributeValue::S(text[5..].into());
 
@@ -178,7 +176,7 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
 
     return Ok(());
   }
-  if is_private && text == "/list" {
+  if is_message_from_admin && text == "/list" {
 
     let request = dynamodb_client
       .scan()
@@ -274,7 +272,7 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
       }
     }
   }
-  if is_private && text.starts_with("/rm") {
+  if is_message_from_admin && text.starts_with("/rm") {
     println!("start_with match to /rm: |{}|", &text[3..]);
 
     let item_id = &text[3..];    
