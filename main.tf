@@ -31,7 +31,7 @@ resource "random_id" "random_path" {
 
 resource "random_id" "random_sufix" {
   byte_length = 8
-  prefix      = "${var.project_name}-"
+  prefix      = "${var.project_name}-${var.stage}-"
 }
 
 resource "aws_s3_bucket" "lambda_bucket" {
@@ -45,13 +45,13 @@ data "archive_file" "lambda_function" {
   type = "zip"
 
   source_file = "${path.module}/target/release/bootstrap"
-  output_path = "${path.module}/${var.project_name}.zip"
+  output_path = "${path.module}/${var.project_name}-${var.stage}.zip"
 }
 
 resource "aws_s3_object" "lambda_function" {
   bucket = aws_s3_bucket.lambda_bucket.id
 
-  key    = "${var.project_name}.zip"
+  key    = "${var.project_name}-${var.stage}.zip"
   source = data.archive_file.lambda_function.output_path
 
   etag = filemd5(data.archive_file.lambda_function.output_path)
@@ -85,7 +85,7 @@ resource "aws_lambda_function" "lambda" {
   environment {
     variables = {
       domain          = aws_apigatewayv2_api.api.api_endpoint
-      token_parameter = "${var.project_name}-token"
+      token_parameter = "${var.project_name}-${var.stage}-token"
       route_path      = random_id.random_path.hex
       table_name      = aws_dynamodb_table.table.name
       admin_id        = var.admin_user_id
@@ -127,7 +127,7 @@ data "aws_iam_policy_document" "lambda_exec_role_policy" {
       "ssm:GetParameter",
     ]
     resources = [
-      "arn:aws:ssm:us-east-1:553441724373:parameter/${var.project_name}-token"
+      "arn:aws:ssm:us-east-1:553441724373:parameter/${var.project_name}-${var.stage}-token"
     ]
   }
   statement {
