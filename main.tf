@@ -31,7 +31,7 @@ resource "random_id" "random_path" {
 
 resource "random_id" "random_sufix" {
   byte_length = 8
-  prefix      = "namoral-bot-"
+  prefix      = "${var.project_name}-"
 }
 
 resource "aws_s3_bucket" "lambda_bucket" {
@@ -45,13 +45,13 @@ data "archive_file" "lambda_function" {
   type = "zip"
 
   source_file = "${path.module}/target/release/bootstrap"
-  output_path = "${path.module}/namoral-bot.zip"
+  output_path = "${path.module}/${var.project_name}.zip"
 }
 
 resource "aws_s3_object" "lambda_function" {
   bucket = aws_s3_bucket.lambda_bucket.id
 
-  key    = "namoral-bot.zip"
+  key    = "${var.project_name}.zip"
   source = data.archive_file.lambda_function.output_path
 
   etag = filemd5(data.archive_file.lambda_function.output_path)
@@ -59,8 +59,8 @@ resource "aws_s3_object" "lambda_function" {
 
 # Create dynamoDb Table
 
-resource "aws_dynamodb_table" "namoral_bot_table" {
-  name           = "namoral-bot-table"
+resource "aws_dynamodb_table" "table" {
+  name           = random_id.random_sufix.hex
   hash_key       = "id"
   billing_mode   = "PROVISIONED"
   read_capacity  = 5
@@ -73,7 +73,7 @@ resource "aws_dynamodb_table" "namoral_bot_table" {
 
 # Create aws lambda
 
-resource "aws_lambda_function" "namoral_bot" {
+resource "aws_lambda_function" "lambda" {
   function_name = random_id.random_sufix.hex
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
@@ -85,9 +85,10 @@ resource "aws_lambda_function" "namoral_bot" {
   environment {
     variables = {
       domain          = aws_apigatewayv2_api.api.api_endpoint
-      token_parameter = "namoral-bot-rust-dev"
+      token_parameter = "${var.project_name}-token"
       route_path      = random_id.random_path.hex
-      table_name      = aws_dynamodb_table.namoral_bot_table.name
+      table_name      = aws_dynamodb_table.table.name
+      admin_id        = var.admin_user_id
     }
   }
 
@@ -97,7 +98,7 @@ resource "aws_lambda_function" "namoral_bot" {
 }
 
 data "aws_lambda_invocation" "set_webhook" {
-  function_name = aws_lambda_function.namoral_bot.function_name
+  function_name = aws_lambda_function.lambda.function_name
 
   input = <<JSON
 {
@@ -107,7 +108,7 @@ JSON
 }
 
 resource "aws_cloudwatch_log_group" "hello_world" {
-  name              = "/aws/lambda/${aws_lambda_function.namoral_bot.function_name}"
+  name              = "/aws/lambda/${aws_lambda_function.lambda.function_name}"
   retention_in_days = 7
 }
 
@@ -126,7 +127,7 @@ data "aws_iam_policy_document" "lambda_exec_role_policy" {
       "ssm:GetParameter",
     ]
     resources = [
-      "arn:aws:ssm:us-east-1:553441724373:parameter/namoral-bot-rust-dev"
+      "arn:aws:ssm:us-east-1:553441724373:parameter/${var.project_name}-token"
     ]
   }
   statement {
@@ -136,7 +137,7 @@ data "aws_iam_policy_document" "lambda_exec_role_policy" {
       "dynamodb:DeleteItem",
     ]
     resources = [
-      aws_dynamodb_table.namoral_bot_table.arn
+      aws_dynamodb_table.table.arn
     ]
   }
 }
@@ -145,11 +146,6 @@ resource "aws_iam_role_policy" "lambda_exec_role" {
   role   = aws_iam_role.lambda_exec.id
   policy = data.aws_iam_policy_document.lambda_exec_role_policy.json
 }
-
-# resource "aws_iam_role_policy_attachment" "lambda_policy" {
-#   role       = aws_iam_role.lambda_exec.name
-#   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-# }
 
 resource "aws_iam_role" "lambda_exec" {
   name = random_id.random_sufix.hex
@@ -177,7 +173,7 @@ resource "aws_apigatewayv2_api" "api" {
 resource "aws_apigatewayv2_integration" "api" {
   api_id = aws_apigatewayv2_api.api.id
 
-  integration_uri        = aws_lambda_function.namoral_bot.invoke_arn
+  integration_uri        = aws_lambda_function.lambda.invoke_arn
   integration_type       = "AWS_PROXY"
   integration_method     = "POST"
   payload_format_version = "2.0"
@@ -204,7 +200,7 @@ resource "aws_cloudwatch_log_group" "api_gw" {
 
 resource "aws_lambda_permission" "api_gw" {
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.namoral_bot.arn
+  function_name = aws_lambda_function.lambda.arn
   principal     = "apigateway.amazonaws.com"
 
   source_arn = "${aws_apigatewayv2_api.api.execution_arn}/*/*"

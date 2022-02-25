@@ -10,7 +10,7 @@ output "bucket" {
 
 output "lambda" {
   description = "Name of the lambda function."
-  value       = aws_lambda_function.namoral_bot.function_name
+  value       = aws_lambda_function.lambda.function_name
 }
 
 output "api_gateway_domain" {

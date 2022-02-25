@@ -23,7 +23,7 @@ pub struct Chat {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct From {
   first_name: String,
-  id: u64,
+  pub id: u64,
   is_bot: bool,
   language_code: String,
   username: String,
@@ -33,7 +33,7 @@ pub struct From {
 pub struct Message {
   pub chat: Chat,
   date: u64,
-  from: From,
+  pub from: From,
   message_id: u64,
   pub text: Option<String>,
 }
