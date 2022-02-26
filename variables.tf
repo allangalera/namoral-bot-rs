@@ -15,6 +15,14 @@ variable "project_name" {
   nullable = false
 }
 
+variable "stage" {
+  description = "Stage to deploy. Ex.: dev, stage, prod. Default is 'dev'"
+
+  type     = string
+  default  = "prd"
+  nullable = false
+}
+
 variable "admin_user_id" {
   description = "The user id that is going to be able to add, view and delete messages"
 
