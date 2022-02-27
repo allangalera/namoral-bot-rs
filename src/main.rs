@@ -6,7 +6,7 @@ use aws_sdk_ssm::{Client as SSMClient, Region};
 use serde_json::{json};
 use nanoid::nanoid;
 use namoral_bot::*;
-use reqwest;
+use reqwest::Client;
 use reqwest::header::CONTENT_TYPE;
 use rand::seq::SliceRandom;
 use rand::Rng;
@@ -19,8 +19,7 @@ async fn main() -> Result<(), Error> {
   let handler = lambda_runtime::handler_fn(handler);
   lambda_runtime::run(handler).await?;
   Ok(())
-}
-    
+}    
 
 async fn handler(event: Request, _context: Context) -> Result<(), Error> {
   let token_parameter: String;
@@ -53,14 +52,14 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
 
   let parameter = response.parameter;
 
-  if let None = parameter {
+  if parameter.is_none() {
     println!("No parameter");
     return Ok(());
   }
 
   let parameter = parameter.unwrap();
 
-  if let None = parameter.value {
+  if parameter.value.is_none() {
     println!("Parameter has no value");
     return Ok(());
   }
@@ -80,7 +79,7 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
 
       println!("telegram url: {:?} || webhook_url: {:?}", set_webhook_url, message_data);
 
-      let client = reqwest::Client::new();
+      let client = Client::new();
       let res = client.post(set_webhook_url)
           .header(CONTENT_TYPE, "application/json")
           .body(message_data.to_string())
@@ -95,7 +94,7 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
     return Ok(());
   }
 
-  if let None = event.body {
+  if event.body.is_none() {
     println!("Request has no body");
     return Ok(());
   }
@@ -106,18 +105,18 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
   
   println!("{:?}", update);
 
-  if let None = update.update_id {
+  if update.update_id.is_none() {
       println!("Event it's not an telegram update");
       return Ok(());
   }
-  if let None = update.message {
+  if update.message.is_none() {
       println!("Update it's not a message");
       return Ok(());
   }
 
   let message: Message = update.message.unwrap();
 
-  if let None = message.text {
+  if message.text.is_none() {
       println!("Update it's not a text message");
       return Ok(());
   }
@@ -126,10 +125,7 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
   let send_message_url = format!("{}{}/sendMessage", TELEGRAM_BASE_URL, bot_token);
   let client = reqwest::Client::new();
 
-  let is_private: bool = match message.chat.r#type {
-    ChatType::Private => true,
-    _ => false,
-  };
+  let is_private: bool = matches!(message.chat.r#type, ChatType::Private);
 
   let dynamodb_client = DynamodbClient::new(&shared_config);
   let table_name = env::var("table_name").unwrap();
@@ -311,7 +307,7 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
 
   let should_not_send_message: bool = match message.chat.r#type {
     ChatType::Private => false,
-    _ => rng.gen_bool(0.8),
+    _ => rng.gen_bool(0.6),
   };
 
   if should_not_send_message {
@@ -334,7 +330,7 @@ async fn handler(event: Request, _context: Context) -> Result<(), Error> {
       match response.items {
         Some(items) => {
 
-          if items.len() == 0 {
+          if items.is_empty() {
             println!("There are no messages to send");
             return Ok(());
           }
